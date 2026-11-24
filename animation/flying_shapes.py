@@ -1,4 +1,6 @@
-
+"""
+uv add opencv-python
+"""
 import random
 import numpy as np
 import cv2
