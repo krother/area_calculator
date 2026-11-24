@@ -14,73 +14,117 @@ WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 PURPLE = (192, 0, 192)
 BLUE = (192, 0, 0)
+ORANGE = (0, 128, 255)  # blue-green-red
 
 MAXX = 1200
 MAXY = 800
+
+# Why are we using classes?
+# - make the code easier to read
+# - make the code easier to modify
+# - separate stuff that changes from stuff that does not change
+#   (or changes for different reasons)
+
+Color = tuple[int, int, int]
 
 
 class Square(BaseModel):
     # TODO: forbid extra fields with pydantic config option
 
     # attributes
+    x: int = 128
+    y: int = 128
+    size: int
+    color: Color = BLUE
+    # good idea if data does not change: size:int = Field(default=32, gt=0, le=min(MAXX, MAXY))
+
+    def draw(self, frame):
+        """
+        method: a function inside a class
+        self: a reference to the object we are currently working on
+        """
+        frame[self.y:self.y+self.size,
+              self.x:self.x+self.size] = self.color
+
+
+class Circle(BaseModel):
     x: int
     y: int
-    size: int
-    color: tuple[int, int, int]
+    radius: int
+    color: Color
+
+    def _draw_circle(self, radius, color):
+        Y, X = np.ogrid[0:MAXY, 0:MAXX]
+        square_dist = (X - self.x) ** 2 + (Y - self.y) ** 2
+        mask = square_dist < radius ** 2
+        frame[mask] = color
+
+    def draw(self, frame):
+        self._draw_circle(self.radius, self.color)
 
 
+class Donut(Circle):
+    """
+    inheritance: Donut is a special kind of circle
+    it does everything Circle does and more (Liskovs Substitution Principle)
+    Circle is the parent class of Donut
+    Donut is the child class of Circle
+    """
+    inner_radius: int
+ 
+    def draw(self, frame):
+        super().draw(frame)  # calls Circle.draw()
+        self._draw_circle(self.inner_radius, BLACK)  # draw the hole
 
-def draw_square(frame, square: Square):
-    frame[square.y:square.y+square.size,
-          square.x:square.x+square.size] = square.color
 
+# TODO: create a Shape class that is a superclass of all other shapes
+#       attributes: x, y, color
+class Triangle(BaseModel):
+    x: int
+    y: int
+    edge_length: int
+    color: Color
+    direction: int  # -1 or 1  TODO use Literal
 
-def draw_circle(frame, xcenter, ycenter):
-    radius = 64
-    Y, X = np.ogrid[0:MAXY, 0:MAXX]
-    square_dist = (X - xcenter) ** 2 + (Y - ycenter) ** 2
-    mask = square_dist < radius ** 2
-    frame[mask] = PURPLE
-
-
-def draw_triangle(frame, xcenter, ycenter, side=64, direction=1):
-    """Draw an upright equilateral triangle. Direction is -1/1."""
-    height = side * np.sqrt(3) / 2
-    points = np.array([
-        [xcenter, ycenter - direction * 2 * height / 3],
-        [xcenter - side / 2, ycenter + direction * height / 3],
-        [xcenter + side / 2, ycenter + direction * height / 3],
-    ])
-    cv2.fillPoly(frame, [np.round(points).astype(np.int32)], BLUE)
+    def draw(self, frame):
+        """Draw an upright equilateral triangle. Direction is -1/1."""
+        height = self.edge_length * np.sqrt(3) / 2
+        points = np.array([
+            [self.x, self.y - self.direction * 2 * height / 3],
+            [self.x - self.edge_length / 2, self.y + self.direction * height / 3],
+            [self.x + self.edge_length / 2, self.y + self.direction * height / 3],
+        ])
+        cv2.fillPoly(frame, [np.round(points).astype(np.int32)], self.color)
 
 # class: abstraction, instance: concrete object
 # table: abstraction, row: concrete data
 
-squares = [
-    Square(x=128, y=128, size=32, color=GREEN),  # instance <- class
-    Square(x=900, y=400, size=32, color=BLUE),
+shapes = [
+    Donut(x=500, y=500, radius=100, inner_radius=50, color=ORANGE),
+    # TODO explain later why
+    Square(size=32, color=GREEN),
+    Square(x=900, y=400, size=32),
+    Circle(x=200, y=200, radius=64, color=PURPLE),
+    Triangle(x=800, y=500, edge_length=50, color=BLUE, direction=-1),
 ]
 
-circlex, circley = 200, 200
 
 background = np.zeros((MAXY, MAXX, 3), np.uint8)
 
 while True:
     frame = background.copy()
 
-    squares[0].x += 2
-    squares[0].y += 1
-    squares[0].size += 1
+    # TODO: make this go away
+    shapes[0].x += 2
+    shapes[0].y += 1
+    #shapes[0].size += 1
     
-    squares[1].x -= 1
+    shapes[1].x -= 1
+    shapes[2].x += 1
 
-    circlex += 1
 
-    for sq in squares:
-        draw_square(frame, sq)
-
-    draw_circle(frame, xcenter=circlex, ycenter=circley)
-    draw_triangle(frame, xcenter=800, ycenter=500)
+    for sh in shapes:
+        sh.draw(frame)  # sh jumps into the function as 'self' parameter
 
     cv2.imshow('frame', frame)
 
