@@ -28,15 +28,41 @@ MAXY = 800
 Color = tuple[int, int, int]
 
 
-class Square(BaseModel):
-    # TODO: forbid extra fields with pydantic config option
+class Move(BaseModel):
+    xspeed: int = 0
+    yspeed: int = 0
+    scale_mod: int = 0
+    color_mod: tuple[int, int, int] = (0, 0, 0)
 
+    def apply_move(self, shape):
+        shape.x += self.xspeed
+        shape.y += self.yspeed
+
+        shape.modify_scale(self.scale_mod)
+
+        new_color = tuple((a+b) % 256 for a, b in zip(shape.color, self.color_mod))
+        shape.color = new_color
+
+
+class Shape(BaseModel):
     # attributes
     x: int = 128
     y: int = 128
-    size: int
     color: Color = BLUE
+    move: Move = Move()  # object composition
+
+    def modify_scale(self, mod):
+        pass
+
+    # would also work with dataclass (standard module)
+    # TODO: forbid extra fields with pydantic config option
     # good idea if data does not change: size:int = Field(default=32, gt=0, le=min(MAXX, MAXY))
+
+
+
+
+class Square(Shape):
+    size: int
 
     def draw(self, frame):
         """
@@ -46,12 +72,12 @@ class Square(BaseModel):
         frame[self.y:self.y+self.size,
               self.x:self.x+self.size] = self.color
 
+    def modify_scale(self, mod):
+        self.size += mod
 
-class Circle(BaseModel):
-    x: int
-    y: int
+
+class Circle(Shape):
     radius: int
-    color: Color
 
     def _draw_circle(self, radius, color):
         Y, X = np.ogrid[0:MAXY, 0:MAXX]
@@ -61,6 +87,9 @@ class Circle(BaseModel):
 
     def draw(self, frame):
         self._draw_circle(self.radius, self.color)
+
+    def modify_scale(self, mod):
+        self.radius += mod
 
 
 class Donut(Circle):
@@ -76,14 +105,14 @@ class Donut(Circle):
         super().draw(frame)  # calls Circle.draw()
         self._draw_circle(self.inner_radius, BLACK)  # draw the hole
 
+    def modify_scale(self, mod):
+        super().modify_scale(mod)
+        self.inner_radius += mod
 
-# TODO: create a Shape class that is a superclass of all other shapes
-#       attributes: x, y, color
-class Triangle(BaseModel):
-    x: int
-    y: int
+
+
+class Triangle(Shape):
     edge_length: int
-    color: Color
     direction: int  # -1 or 1  TODO use Literal
 
     def draw(self, frame):
@@ -96,17 +125,36 @@ class Triangle(BaseModel):
         ])
         cv2.fillPoly(frame, [np.round(points).astype(np.int32)], self.color)
 
+    def modify_scale(self, mod):
+        self.edge_length += mod
+
+    @staticmethod
+    def blue_upsidedown_triangle(x, y) -> Triangle:
+        """
+        a special creator method
+        @staticmethod : a method without self
+        """
+        return Triangle(x=x, y=y, edge_length=42, color=BLUE, direction=-1)
+
+
+
 # class: abstraction, instance: concrete object
 # table: abstraction, row: concrete data
 
 shapes = [
-    Donut(x=500, y=500, radius=100, inner_radius=50, color=ORANGE),
-    # TODO explain later why
-    Square(size=32, color=GREEN),
+    Donut(x=500, y=500, radius=100, inner_radius=50, color=ORANGE, move=Move(scale_mod=1)),
+    Square(size=32, color=GREEN, move=Move(xspeed=1, scale_mod=2)),
     Square(x=900, y=400, size=32),
-    Circle(x=200, y=200, radius=64, color=PURPLE),
-    Triangle(x=800, y=500, edge_length=50, color=BLUE, direction=-1),
+    Circle(x=200, y=200, radius=64, color=PURPLE, move=Move(yspeed=1)),
+    Triangle(x=800, y=500, edge_length=50, color=BLUE, direction=1, move=Move(xspeed=-1, yspeed=-1, color_mod=(0, 0, 1))),
+    Triangle.blue_upsidedown_triangle(50, 50)
 ]
+for _ in range(100):
+    shapes.append(Square(x=600, y=400, size=random.randint(5,20), 
+            color=(random.randint(50,255), random.randint(50,255), random.randint(50,255)),
+            move=Move(xspeed=random.randint(-5, 5), yspeed=random.randint(-5, 5))
+    ))
+               
 
 
 background = np.zeros((MAXY, MAXX, 3), np.uint8)
@@ -114,16 +162,8 @@ background = np.zeros((MAXY, MAXX, 3), np.uint8)
 while True:
     frame = background.copy()
 
-    # TODO: make this go away
-    shapes[0].x += 2
-    shapes[0].y += 1
-    #shapes[0].size += 1
-    
-    shapes[1].x -= 1
-    shapes[2].x += 1
-
-
     for sh in shapes:
+        sh.move.apply_move(sh)
         sh.draw(frame)  # sh jumps into the function as 'self' parameter
 
     cv2.imshow('frame', frame)
