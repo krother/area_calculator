@@ -2,8 +2,12 @@
 uv add opencv-python
 """
 import random
-import numpy as np
+from typing import Any
+
 import cv2
+import numpy as np
+from pydantic import BaseModel, field_validator
+
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -15,14 +19,20 @@ MAXX = 1200
 MAXY = 800
 
 
-background = np.zeros((MAXY, MAXX, 3), np.uint8)
+class Square(BaseModel):
+    # TODO: forbid extra fields with pydantic config option
 
-x = 128
-y = 128
-size = 32
+    # attributes
+    x: int
+    y: int
+    size: int
+    color: tuple[int, int, int]
 
-def draw_square(frame):
-    frame[y:y+size, x:x+size] = GREEN
+
+
+def draw_square(frame, square: Square):
+    frame[square.y:square.y+square.size,
+          square.x:square.x+square.size] = square.color
 
 
 def draw_circle(frame, xcenter, ycenter):
@@ -43,12 +53,33 @@ def draw_triangle(frame, xcenter, ycenter, side=64, direction=1):
     ])
     cv2.fillPoly(frame, [np.round(points).astype(np.int32)], BLUE)
 
+# class: abstraction, instance: concrete object
+# table: abstraction, row: concrete data
+
+squares = [
+    Square(x=128, y=128, size=32, color=GREEN),  # instance <- class
+    Square(x=900, y=400, size=32, color=BLUE),
+]
+
+circlex, circley = 200, 200
+
+background = np.zeros((MAXY, MAXX, 3), np.uint8)
 
 while True:
     frame = background.copy()
 
-    draw_square(frame)
-    draw_circle(frame, xcenter=200, ycenter=200)
+    squares[0].x += 2
+    squares[0].y += 1
+    squares[0].size += 1
+    
+    squares[1].x -= 1
+
+    circlex += 1
+
+    for sq in squares:
+        draw_square(frame, sq)
+
+    draw_circle(frame, xcenter=circlex, ycenter=circley)
     draw_triangle(frame, xcenter=800, ycenter=500)
 
     cv2.imshow('frame', frame)
