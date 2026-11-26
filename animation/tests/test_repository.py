@@ -53,6 +53,8 @@ def test_closed_connection_raises_repository_error(tmp_path, shapes):
     with pytest.raises((ShapeRepositoryError, duckdb.Error)):
         repo.save_all(shapes)
 
+# TODO: should we test whether one can create two repositories that contain different data?
+
 
 def test_invalid_path_raises_repository_error(tmp_path):
     with pytest.raises(ShapeRepositoryError):

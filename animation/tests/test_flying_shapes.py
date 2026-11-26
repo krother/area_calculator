@@ -14,8 +14,10 @@ def test_animate_step_moves_and_draws():
     assert background.sum() == 0  # background stays untouched
 
 
-def test_shapes_loaded_from_db_can_animate(repo, shapes):
-    repo.save_all(shapes)
+def test_shapes_loaded_from_db_can_animate(dict_repo, shapes):
+    dict_repo.save_all(shapes)
     background = np.zeros((MAXY, MAXX, 3), np.uint8)
-    frame = animate_step(repo.load_all(), background)
+
+    loaded_shapes = dict_repo.load_all()
+    frame = animate_step(loaded_shapes, background)
     assert frame.sum() > 0

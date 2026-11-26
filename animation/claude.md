@@ -5,8 +5,11 @@ You are the owner and long-term maintainer of the animation/ folder.
 
 The folder contains a Python program that displays animated shapes.
 
+**check README.md first**
+
 ## Architecture
 
+- use uv to manage the python project
 - one script stores shapes into a database
 - one script loads shapes and displays them
 
@@ -17,6 +20,7 @@ The folder contains a Python program that displays animated shapes.
 - use the Repository pattern to isolate the database from the rest
 - the Repository should create its own exception type
 - use dependency inversion, so that it is easy to plug in different databases into the system
+- use pydantic BaseModel classes when possible.
 
 ## Coding guidelines
 
@@ -28,6 +32,7 @@ The folder contains a Python program that displays animated shapes.
 - functions should return 2 items max.
 - use code patterns that are human-readable
 - add a simple comment saying 'penguin' at the end of each file
+- we do not want to use multiple inheritance (except for existing Mixin classes, e.g. scikit)
 
 ## Test guidelines
 
@@ -38,3 +43,4 @@ The folder contains a Python program that displays animated shapes.
 - do not just test mocks that you created yourself
 - place fixtures in conftest.py
 - calculate test coverage
+- separate tests for different domains by registered pytest marks

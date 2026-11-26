@@ -1,0 +1,30 @@
+services:
+
+  mongo:
+    image: mongo:8
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping: 1})"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    ports:
+      - 27017:27017
+
+  tests:
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      PYTHONDONTWRITEBYTECODE: "1"
+      UV_NO_PROJECT: "1"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    # headless OpenCV avoids the GUI libraries missing in the slim image
+    command: >
+      uv run --no-project
+      --with pytest --with pymongo --with duckdb --with numpy
+      --with pydantic --with opencv-python-headless
+      pytest -p no:cacheprovider
