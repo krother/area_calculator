@@ -9,6 +9,9 @@ services:
       retries: 15
     ports:
       - 27017:27017
+    command: ["mongod", "--quiet", "--logpath", "/dev/null"]
+    logging:
+      driver: none
 
   tests:
     image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
